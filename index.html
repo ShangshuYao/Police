@@ -1,0 +1,657 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>采购管理系统</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family:"Microsoft YaHei","PingFang SC",Segoe UI,sans-serif; background:#f1f5f9; color:#1e293b; font-size:14px; }
+  .hidden { display:none !important; }
+  button { cursor:pointer; border:none; border-radius:6px; font-size:13px; padding:7px 14px; transition:.15s; font-family:inherit; }
+  .btn-primary { background:#2563eb; color:#fff; }
+  .btn-primary:hover { background:#1d4ed8; }
+  .btn-green { background:#16a34a; color:#fff; }
+  .btn-green:hover { background:#15803d; }
+  .btn-red { background:#dc2626; color:#fff; }
+  .btn-red:hover { background:#b91c1c; }
+  .btn-gray { background:#e2e8f0; color:#334155; }
+  .btn-gray:hover { background:#cbd5e1; }
+  .btn-sm { padding:4px 10px; font-size:12px; }
+  input,select,textarea { font-family:inherit; font-size:13px; padding:7px 10px; border:1px solid #cbd5e1; border-radius:6px; outline:none; background:#fff; }
+  input:focus,select:focus,textarea:focus { border-color:#2563eb; }
+  table { width:100%; border-collapse:collapse; background:#fff; border-radius:8px; overflow:hidden; }
+  th,td { padding:10px 12px; text-align:left; border-bottom:1px solid #e2e8f0; font-size:13px; }
+  th { background:#f8fafc; color:#475569; font-weight:600; white-space:nowrap; }
+  tr:hover td { background:#f8fafc; }
+  .card { background:#fff; border-radius:10px; padding:18px; box-shadow:0 1px 3px rgba(0,0,0,.06); }
+
+  /* ---------- 启动遮罩 ---------- */
+  #boot { position:fixed; inset:0; background:#f1f5f9; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:12px; z-index:300; }
+  #boot .spin { width:34px; height:34px; border:4px solid #cbd5e1; border-top-color:#2563eb; border-radius:50%; animation:sp 1s linear infinite; }
+  @keyframes sp { to { transform:rotate(360deg); } }
+
+  /* ---------- 登录页 ---------- */
+  #loginPage { min-height:100vh; display:flex; align-items:center; justify-content:center;
+    background:linear-gradient(135deg,#1e3a8a 0%,#2563eb 55%,#3b82f6 100%); }
+  .login-box { background:#fff; border-radius:14px; padding:38px 36px; width:380px; box-shadow:0 20px 50px rgba(0,0,0,.25); }
+  .login-box h1 { font-size:22px; text-align:center; margin-bottom:6px; color:#1e3a8a; }
+  .login-box .sub { text-align:center; color:#94a3b8; font-size:12px; margin-bottom:26px; }
+  .login-box label { display:block; margin:14px 0 6px; color:#475569; font-size:13px; }
+  .login-box input { width:100%; }
+  .login-box .btn-primary { width:100%; margin-top:24px; padding:10px; font-size:15px; }
+  .login-tip { margin-top:18px; padding:10px 12px; background:#eff6ff; border-radius:8px; color:#1d4ed8; font-size:12px; line-height:1.8; }
+
+  /* ---------- 布局 ---------- */
+  header { height:58px; background:#fff; display:flex; align-items:center; padding:0 22px;
+    box-shadow:0 1px 3px rgba(0,0,0,.06); position:sticky; top:0; z-index:20; }
+  header .logo { font-size:17px; font-weight:700; color:#1e3a8a; display:flex; align-items:center; gap:8px; }
+  header .logo span { background:#2563eb; color:#fff; border-radius:6px; width:28px; height:28px; display:inline-flex; align-items:center; justify-content:center; font-size:15px; }
+  header .right { margin-left:auto; display:flex; align-items:center; gap:14px; }
+  .role-tag { font-size:12px; padding:3px 10px; border-radius:20px; background:#eff6ff; color:#2563eb; }
+  .role-tag.admin { background:#fef3c7; color:#b45309; }
+  #layout { display:flex; min-height:calc(100vh - 58px); }
+  aside { width:190px; background:#fff; padding:14px 10px; border-right:1px solid #e2e8f0; flex-shrink:0; }
+  .nav-item { display:flex; align-items:center; gap:9px; padding:10px 13px; border-radius:8px; color:#475569; margin-bottom:4px; cursor:pointer; font-size:13.5px; }
+  .nav-item:hover { background:#f1f5f9; }
+  .nav-item.active { background:#eff6ff; color:#2563eb; font-weight:600; }
+  main { flex:1; padding:20px 24px; min-width:0; }
+  .page-title { font-size:18px; font-weight:700; margin-bottom:16px; color:#0f172a; }
+
+  /* ---------- 采购大厅 ---------- */
+  .shop-bar { display:flex; gap:10px; align-items:center; margin-bottom:16px; flex-wrap:wrap; }
+  .cat-tabs { display:flex; gap:6px; flex-wrap:wrap; }
+  .cat-tab { padding:6px 15px; border-radius:20px; background:#fff; border:1px solid #e2e8f0; font-size:13px; color:#475569; }
+  .cat-tab.active { background:#2563eb; border-color:#2563eb; color:#fff; }
+  .goods-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(205px,1fr)); gap:14px; }
+  .goods { background:#fff; border-radius:10px; padding:15px; box-shadow:0 1px 3px rgba(0,0,0,.06); display:flex; flex-direction:column; gap:8px; }
+  .goods .name { font-weight:600; font-size:14px; }
+  .goods .cat { font-size:11px; color:#64748b; background:#f1f5f9; padding:2px 8px; border-radius:4px; display:inline-block; width:fit-content; }
+  .goods .row { display:flex; align-items:center; justify-content:space-between; margin-top:auto; }
+  .goods .price { color:#dc2626; font-weight:700; font-size:16px; }
+  .goods .price small { font-weight:400; color:#94a3b8; font-size:11px; }
+  .goods .qty { width:52px; text-align:center; padding:5px; }
+  .empty-tip { text-align:center; color:#94a3b8; padding:50px 0; grid-column:1/-1; }
+
+  /* ---------- 统计卡片 ---------- */
+  .stat-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:14px; margin-bottom:18px; }
+  .stat { background:#fff; border-radius:10px; padding:18px; box-shadow:0 1px 3px rgba(0,0,0,.06); }
+  .stat .num { font-size:26px; font-weight:700; margin-top:6px; }
+  .stat .lbl { color:#64748b; font-size:12.5px; }
+  .stat.blue .num { color:#2563eb; } .stat.green .num { color:#16a34a; }
+  .stat.amber .num { color:#d97706; } .stat.red .num { color:#dc2626; }
+
+  /* ---------- 状态徽章 ---------- */
+  .badge { display:inline-block; padding:3px 10px; border-radius:20px; font-size:12px; white-space:nowrap; }
+  .badge.pending { background:#fef3c7; color:#b45309; }
+  .badge.approved { background:#dcfce7; color:#15803d; }
+  .badge.rejected { background:#fee2e2; color:#b91c1c; }
+
+  /* ---------- 表格区工具条 ---------- */
+  .toolbar { display:flex; gap:10px; align-items:center; margin-bottom:14px; flex-wrap:wrap; }
+  .toolbar .spacer { flex:1; }
+  .mt16 { margin-top:16px; }
+  .muted { color:#94a3b8; font-size:12px; }
+  details summary { cursor:pointer; color:#2563eb; font-size:12.5px; user-select:none; }
+  details table { margin-top:8px; }
+  .inline-form { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+  .inline-form input, .inline-form select { width:auto; }
+  .cat-chip { display:inline-flex; align-items:center; gap:6px; background:#eff6ff; color:#1d4ed8; border-radius:20px; padding:5px 12px; font-size:13px; margin:0 8px 8px 0; }
+  .cat-chip b { cursor:pointer; color:#dc2626; font-weight:400; }
+
+  /* ---------- 弹窗 / Toast ---------- */
+  #modalOverlay { position:fixed; inset:0; background:rgba(15,23,42,.45); display:flex; align-items:center; justify-content:center; z-index:100; }
+  .modal { background:#fff; border-radius:12px; padding:22px 24px; width:440px; max-height:82vh; overflow:auto; box-shadow:0 20px 50px rgba(0,0,0,.25); }
+  .modal h3 { font-size:16px; margin-bottom:14px; }
+  .modal .form-row { margin-bottom:12px; }
+  .modal .form-row label { display:block; margin-bottom:5px; color:#475569; font-size:13px; }
+  .modal .form-row input, .modal .form-row select, .modal .form-row textarea { width:100%; }
+  .modal .btns { display:flex; justify-content:flex-end; gap:10px; margin-top:18px; }
+  #toast { position:fixed; top:70px; left:50%; transform:translateX(-50%); background:#0f172a; color:#fff;
+    padding:10px 22px; border-radius:8px; font-size:13px; z-index:200; box-shadow:0 8px 20px rgba(0,0,0,.25); }
+</style>
+</head>
+<body>
+
+<!-- 启动遮罩 -->
+<div id="boot">
+  <div class="spin"></div>
+  <div style="color:#475569;font-size:14px" id="bootText">正在连接服务器…</div>
+</div>
+
+<!-- 登录页 -->
+<div id="loginPage" class="hidden">
+  <div class="login-box">
+    <h1>📦 采购管理系统</h1>
+    <div class="sub">Office &amp; Daily Supplies Procurement · Flask + SQLite</div>
+    <label>用户名</label>
+    <input id="loginUser" placeholder="请输入用户名" onkeydown="if(event.key==='Enter')document.getElementById('loginPwd').focus()">
+    <label>密码</label>
+    <input id="loginPwd" type="password" placeholder="请输入密码" onkeydown="if(event.key==='Enter')doLogin()">
+    <button class="btn-primary" onclick="doLogin()">登 录</button>
+    <div class="login-tip">
+      默认账号：<b>管理员</b> admin / 123456<br>
+      &emsp;&emsp;&emsp;&nbsp;<b>普通用户</b> user / 123456
+    </div>
+  </div>
+</div>
+
+<!-- 主界面 -->
+<div id="app" class="hidden">
+  <header>
+    <div class="logo"><span>采</span>采购管理系统</div>
+    <div class="right">
+      <span id="cartEntry" class="hidden"><button class="btn-gray" onclick="openCartModal()">🛒 采购车 (<b id="cartCount">0</b>)</button></span>
+      <span class="role-tag" id="roleTag"></span>
+      <span id="whoami" style="font-weight:600"></span>
+      <button class="btn-gray btn-sm" onclick="logout()">退出登录</button>
+    </div>
+  </header>
+  <div id="layout">
+    <aside id="sidebar"></aside>
+    <main id="main"></main>
+  </div>
+</div>
+
+<div id="modalOverlay" class="hidden" onclick="if(event.target===this)closeModal()"></div>
+<div id="toast" class="hidden"></div>
+
+<script>
+"use strict";
+
+/* ================= 通用工具 ================= */
+function fmt(n){ return Number(n).toFixed(2); }
+function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+function val(id){ return document.getElementById(id).value; }
+
+/* ================= API 封装 ================= */
+async function api(path, opts={}){
+  const res = await fetch(path, {
+    method: opts.method || 'GET',
+    headers: { 'Content-Type': 'application/json' },
+    body: opts.body !== undefined ? JSON.stringify(opts.body) : undefined
+  });
+  let data = {};
+  try { data = await res.json(); } catch(e){}
+  if(!res.ok) throw new Error(data.error || ('请求失败(' + res.status + ')'));
+  return data;
+}
+
+/* ================= 全局状态 ================= */
+let currentUser = null;        // {username, role}
+let view = 'shop';
+let cart = [];                 // {itemId, qty}
+let shopCat = 'all', shopKw = '';
+let reviewFilter = 'all', exportFilter = 'approved', exportKw = '', exportMode = 'merged';
+const cache = { categories: [], items: [], requests: [], users: [] };
+
+const SKEY = 'pm_cart_';       // 采购车按用户名存 localStorage（仅本地暂存）
+function loadCart(){
+  try{ cart = JSON.parse(localStorage.getItem(SKEY+currentUser.username)) || []; }catch(e){ cart = []; }
+}
+function saveCart(){ localStorage.setItem(SKEY+currentUser.username, JSON.stringify(cart)); }
+
+function statusText(s){ return s==='pending' ? '待审核' : s==='approved' ? '已通过' : '已驳回'; }
+function statusBadge(s){ return '<span class="badge '+s+'">'+statusText(s)+'</span>'; }
+function reqTotal(r){ return r.items.reduce((s,it)=>s+it.price*it.qty,0); }
+
+/* ================= 会话 / 导航 ================= */
+async function doLogin(){
+  try{
+    currentUser = await api('/api/login', { method:'POST', body:{ username: val('loginUser').trim(), password: val('loginPwd') } });
+    loadCart();
+    view = currentUser.role==='admin' ? 'dashboard' : 'shop';
+    enterApp();
+  }catch(e){ toast(e.message); }
+}
+async function logout(){
+  if(!confirm('确定退出登录吗？')) return;
+  try{ await api('/api/logout', { method:'POST' }); }catch(e){}
+  currentUser = null;
+  document.getElementById('app').classList.add('hidden');
+  document.getElementById('loginPage').classList.remove('hidden');
+  document.getElementById('loginPwd').value = '';
+}
+function enterApp(){
+  document.getElementById('loginPage').classList.add('hidden');
+  document.getElementById('app').classList.remove('hidden');
+  document.getElementById('whoami').textContent = currentUser.username;
+  const tag = document.getElementById('roleTag');
+  tag.textContent = currentUser.role==='admin' ? '管理员' : '普通用户';
+  tag.className = 'role-tag' + (currentUser.role==='admin' ? ' admin' : '');
+  document.getElementById('cartEntry').classList.toggle('hidden', currentUser.role!=='user');
+  render();
+}
+function switchView(v){ view = v; render(); }
+async function render(){
+  renderSidebar(); updateCartCount();
+  const main = document.getElementById('main');
+  try{
+    if(view==='shop')           await renderShop(main);
+    else if(view==='myreq')     await renderMyRequests(main);
+    else if(view==='dashboard') await renderDashboard(main);
+    else if(view==='items')     await renderItems(main);
+    else if(view==='review')    await renderReview(main);
+    else if(view==='export')    await renderExport(main);
+    else if(view==='users')     await renderUsers(main);
+  }catch(e){
+    if(String(e.message).includes('未登录')){ currentUser = null; document.getElementById('app').classList.add('hidden'); document.getElementById('loginPage').classList.remove('hidden'); return; }
+    main.innerHTML = '<div class="card empty-tip">加载失败：'+esc(e.message)+'</div>';
+  }
+}
+function renderSidebar(){
+  const nav = [];
+  if(currentUser.role==='user'){
+    nav.push(['shop','🛍️','采购大厅']);
+    nav.push(['myreq','📋','我的申请']);
+  } else {
+    nav.push(['dashboard','📊','数据概览']);
+    nav.push(['items','🗂️','物品管理']);
+    nav.push(['review','✅','审核中心']);
+    nav.push(['export','📤','采购明细']);
+    nav.push(['users','👥','用户管理']);
+  }
+  document.getElementById('sidebar').innerHTML = nav.map(n=>
+    '<div class="nav-item'+(view===n[0]?' active':'')+'" onclick="switchView(\''+n[0]+'\')">'+n[1]+' '+n[2]+'</div>').join('');
+}
+function updateCartCount(){
+  document.getElementById('cartCount').textContent = cart.reduce((s,c)=>s+c.qty,0);
+}
+async function act(fn){
+  try{ await fn(); }
+  catch(e){ toast(e.message); }
+}
+
+/* ================= 普通用户：采购大厅 ================= */
+async function renderShop(main){
+  const [cats, items] = await Promise.all([api('/api/categories'), api('/api/items')]);
+  cache.categories = cats; cache.items = items;
+  const tabs = ['<div class="cat-tab'+(shopCat==='all'?' active':'')+'" onclick="setShopCat(\'all\')">全部</div>']
+    .concat(cats.map(c=>'<div class="cat-tab'+(shopCat===c.id?' active':'')+'" onclick="setShopCat(\''+c.id+'\')">'+esc(c.name)+'</div>'));
+  main.innerHTML = '<div class="page-title">采购大厅</div>'
+    + '<div class="shop-bar"><div class="cat-tabs">'+tabs.join('')+'</div>'
+    + '<input style="margin-left:auto;width:220px" placeholder="搜索物品名称…" value="'+esc(shopKw)+'" oninput="shopKw=this.value;renderShopGrid()"></div>'
+    + '<div class="goods-grid" id="goodsGrid">'+goodsGrid(filteredItems())+'</div>';
+}
+function filteredItems(){
+  const kw = shopKw.trim();
+  return cache.items.filter(i => (shopCat==='all' || i.cat_id===shopCat) && (!kw || i.name.includes(kw)));
+}
+function goodsGrid(list){
+  if(!list.length) return '<div class="empty-tip">暂无相关物品</div>';
+  return list.map(i=>
+    '<div class="goods">'
+    + '<span class="cat">'+esc(i.cat_name || '未分类')+'</span>'
+    + '<div class="name">'+esc(i.name)+'</div>'
+    + '<div class="row"><span class="price">¥'+fmt(i.price)+' <small>/'+esc(i.unit)+'</small></span>'
+    + '<input type="number" min="1" value="1" class="qty" id="qty_'+i.id+'">'
+    + '<button class="btn-primary btn-sm" onclick="addToCart(\''+i.id+'\')">加入</button></div></div>'
+  ).join('');
+}
+function setShopCat(id){ shopCat = id; render(); }
+function renderShopGrid(){
+  const grid = document.getElementById('goodsGrid'); if(!grid) return;
+  grid.innerHTML = goodsGrid(filteredItems());
+}
+function addToCart(itemId){
+  const qty = parseInt(val('qty_'+itemId), 10);
+  if(!(qty>=1)){ toast('请输入正确的数量'); return; }
+  const exist = cart.find(c=>c.itemId===itemId);
+  if(exist) exist.qty += qty; else cart.push({itemId, qty});
+  saveCart(); updateCartCount(); toast('已加入采购车');
+}
+function itemInCart(id){ return cache.items.find(i=>i.id===id); }
+function openCartModal(){
+  if(!cart.length){ toast('采购车为空，请先选择物品'); return; }
+  const rows = cart.map((c,idx)=>{
+    const it = itemInCart(c.itemId);
+    return '<tr><td>'+esc(it.name)+'</td><td>¥'+fmt(it.price)+'/'+esc(it.unit)+'</td>'
+      + '<td><input type="number" min="1" value="'+c.qty+'" style="width:60px" onchange="cartQty('+idx+',this.value)"></td>'
+      + '<td>¥'+fmt(it.price*c.qty)+'</td>'
+      + '<td><button class="btn-red btn-sm" onclick="cartRemove('+idx+')">删除</button></td></tr>';
+  }).join('');
+  const total = cart.reduce((s,c)=>{ const it=itemInCart(c.itemId); return s+it.price*c.qty; },0);
+  showModal('采购车确认',
+    '<table><thead><tr><th>物品</th><th>单价</th><th>数量</th><th>金额</th><th></th></tr></thead><tbody>'+rows+'</tbody></table>'
+    + '<div style="text-align:right;margin-top:12px;font-size:15px">合计：<b style="color:#dc2626">¥'+fmt(total)+'</b></div>'
+    + '<div class="form-row" style="margin-top:8px"><label>申请备注（选填）</label><textarea id="reqNote" rows="2" placeholder="如：部门日常补充"></textarea></div>',
+    [['btn-primary','提交采购申请','submitRequest()'],['btn-gray','取消','closeModal()']]);
+}
+function cartQty(idx, v){
+  const n = parseInt(v,10); if(!(n>=1)){ toast('数量至少为1'); return; }
+  cart[idx].qty = n; saveCart(); updateCartCount();
+}
+function cartRemove(idx){ cart.splice(idx,1); saveCart(); updateCartCount();
+  if(!cart.length){ closeModal(); } else { openCartModal(); } }
+async function submitRequest(){
+  if(!cart.length){ toast('采购车为空'); return; }
+  try{
+    const r = await api('/api/requests', { method:'POST', body:{
+      note: val('reqNote').trim(),
+      items: cart.map(c=>({ item_id:c.itemId, qty:c.qty }))
+    }});
+    cart = []; saveCart(); updateCartCount(); closeModal();
+    toast('采购申请 '+r.no+' 已提交，等待管理员审核');
+    view = 'myreq'; render();
+  }catch(e){ toast(e.message); }
+}
+
+/* ================= 普通用户：我的申请 ================= */
+async function renderMyRequests(main){
+  cache.requests = await api('/api/requests');
+  const mine = cache.requests;
+  if(!mine.length){ main.innerHTML = '<div class="page-title">我的申请</div><div class="card empty-tip">还没有采购申请，去<a href="javascript:void(0)" onclick="switchView(\'shop\')" style="color:#2563eb">采购大厅</a>看看吧</div>'; return; }
+  main.innerHTML = '<div class="page-title">我的申请</div>' + mine.map(requestCard).join('');
+}
+function requestCard(r){
+  return '<div class="card" style="margin-bottom:12px">'
+    + '<div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">'
+    + '<b>'+esc(r.no)+'</b>'+statusBadge(r.status)
+    + '<span class="muted">'+esc(r.date)+'</span>'
+    + '<span style="margin-left:auto">合计 <b style="color:#dc2626">¥'+fmt(reqTotal(r))+'</b></span></div>'
+    + (r.note ? '<div class="muted" style="margin-top:6px">备注：'+esc(r.note)+'</div>' : '')
+    + '<details style="margin-top:8px"><summary>查看物品明细（'+r.items.length+'项）</summary>'
+    + reqItemsTable(r) + '</details>'
+    + (r.comment ? '<div style="margin-top:8px;padding:8px 12px;background:#f8fafc;border-radius:6px;font-size:12.5px">审核意见：'+esc(r.comment)+'</div>' : '')
+    + '</div>';
+}
+function reqItemsTable(r){
+  return '<table><thead><tr><th>物品</th><th>分类</th><th>单价</th><th>数量</th><th>金额</th></tr></thead><tbody>'
+    + r.items.map(it=>'<tr><td>'+esc(it.name)+'</td><td>'+esc(it.cat_name)+'</td><td>¥'+fmt(it.price)+'/'+esc(it.unit)+'</td><td>'+it.qty+'</td><td>¥'+fmt(it.price*it.qty)+'</td></tr>').join('')
+    + '</tbody></table>';
+}
+
+/* ================= 管理员：数据概览 ================= */
+async function renderDashboard(main){
+  const [items, users, requests] = await Promise.all([api('/api/items'), api('/api/users'), api('/api/requests')]);
+  cache.items = items; cache.users = users; cache.requests = requests;
+  const pending = requests.filter(r=>r.status==='pending');
+  const approved = requests.filter(r=>r.status==='approved');
+  const totalAmt = approved.reduce((s,r)=>s+reqTotal(r),0);
+  const pendingHtml = pending.length ? pending.slice(0,5).map(r=>
+    '<tr><td>'+esc(r.no)+'</td><td>'+esc(r.username)+'</td><td>'+esc(r.date)+'</td><td>'+r.items.length+' 项</td><td>¥'+fmt(reqTotal(r))+'</td></tr>').join('')
+    : '<tr><td colspan="5" style="text-align:center;color:#94a3b8">暂无待审核申请</td></tr>';
+  main.innerHTML = '<div class="page-title">数据概览</div>'
+    + '<div class="stat-grid">'
+    + '<div class="stat blue"><div class="lbl">物品种类</div><div class="num">'+items.length+'</div></div>'
+    + '<div class="stat blue"><div class="lbl">普通用户数</div><div class="num">'+users.filter(u=>u.role==='user').length+'</div></div>'
+    + '<div class="stat amber"><div class="lbl">待审核申请</div><div class="num">'+pending.length+'</div></div>'
+    + '<div class="stat green"><div class="lbl">已通过申请</div><div class="num">'+approved.length+'</div></div>'
+    + '<div class="stat red"><div class="lbl">已通过采购总金额</div><div class="num">¥'+fmt(totalAmt)+'</div></div>'
+    + '</div>'
+    + '<div class="card"><div style="font-weight:600;margin-bottom:10px">最新待审核申请</div>'
+    + '<table><thead><tr><th>单号</th><th>申请人</th><th>申请时间</th><th>物品</th><th>金额</th></tr></thead><tbody>'+pendingHtml+'</tbody></table>'
+    + '<div class="mt16"><button class="btn-primary" onclick="switchView(\'review\')">前往审核 →</button></div></div>'
+    + '<div class="card mt16"><div style="font-weight:600;margin-bottom:10px">数据库管理</div>'
+    + '<div class="muted" style="margin-bottom:10px">数据存储于服务端 SQLite 数据库文件 procurement.db（与 app.py 同目录），所有用户实时共享。点击导出可下载数据库副本用于备份；日常备份也可直接复制该文件。</div>'
+    + '<div style="display:flex;gap:10px;flex-wrap:wrap">'
+    + '<button class="btn-green" onclick="location.href=\'/api/db/export\'">💾 导出数据库文件 (.db)</button>'
+    + '</div></div>';
+}
+
+/* ================= 管理员：物品管理 ================= */
+async function renderItems(main){
+  const [cats, items] = await Promise.all([api('/api/categories'), api('/api/items')]);
+  cache.categories = cats; cache.items = items;
+  const catChips = cats.map(c=>
+    '<span class="cat-chip">'+esc(c.name)+'<b title="删除分类" onclick="delCategory(\''+c.id+'\')">✕</b></span>').join('');
+  const rows = items.map(i=>
+    '<tr><td>'+esc(i.name)+'</td><td>'+esc(i.cat_name || '未分类')+'</td><td>¥'+fmt(i.price)+'</td><td>'+esc(i.unit)+'</td>'
+    + '<td><button class="btn-gray btn-sm" onclick="openItemModal(\''+i.id+'\')">编辑</button> '
+    + '<button class="btn-red btn-sm" onclick="delItem(\''+i.id+'\')">删除</button></td></tr>').join('');
+  const opts = cats.map(c=>'<option value="'+c.id+'">'+esc(c.name)+'</option>').join('');
+  main.innerHTML = '<div class="page-title">物品管理</div>'
+    + '<div class="card" style="margin-bottom:16px"><div style="font-weight:600;margin-bottom:10px">物品种类（分类）</div>'
+    + catChips
+    + '<div class="inline-form" style="margin-top:6px"><input id="newCatName" placeholder="新分类名称" style="width:180px">'
+    + '<button class="btn-primary" onclick="addCategory()">＋ 添加分类</button></div></div>'
+    + '<div class="card"><div style="font-weight:600;margin-bottom:12px">物品列表（'+items.length+'）</div>'
+    + '<div class="inline-form" style="margin-bottom:12px">'
+    + '<input id="newItemName" placeholder="物品名称" style="width:200px">'
+    + '<select id="newItemCat">'+opts+'</select>'
+    + '<input id="newItemPrice" type="number" min="0" step="0.1" placeholder="单价(元)" style="width:100px">'
+    + '<input id="newItemUnit" placeholder="单位" style="width:80px">'
+    + '<button class="btn-primary" onclick="addItem()">＋ 添加物品</button></div>'
+    + '<table><thead><tr><th>名称</th><th>分类</th><th>单价</th><th>单位</th><th>操作</th></tr></thead><tbody>'+rows+'</tbody></table></div>';
+}
+async function addCategory(){
+  await act(async ()=>{
+    await api('/api/categories', { method:'POST', body:{ name: val('newCatName').trim() } });
+    toast('分类已添加'); render();
+  });
+}
+function delCategory(id){
+  if(!confirm('确定删除该分类吗？')) return;
+  act(async ()=>{
+    await api('/api/categories/'+id, { method:'DELETE' });
+    toast('分类已删除'); render();
+  });
+}
+async function addItem(){
+  await act(async ()=>{
+    await api('/api/items', { method:'POST', body:{
+      name: val('newItemName').trim(), cat_id: val('newItemCat'),
+      price: parseFloat(val('newItemPrice')), unit: val('newItemUnit').trim() } });
+    toast('物品已添加'); render();
+  });
+}
+function delItem(id){
+  if(!confirm('确定删除该物品吗？')) return;
+  act(async ()=>{
+    await api('/api/items/'+id, { method:'DELETE' });
+    cart = cart.filter(c=>c.itemId!==id); saveCart();
+    toast('物品已删除'); render();
+  });
+}
+function openItemModal(id){
+  const it = cache.items.find(i=>i.id===id);
+  const opts = cache.categories.map(c=>
+    '<option value="'+c.id+'"'+(c.id===it.cat_id?' selected':'')+'>'+esc(c.name)+'</option>').join('');
+  showModal('编辑物品',
+    '<div class="form-row"><label>名称</label><input id="editName" value="'+esc(it.name)+'"></div>'
+    + '<div class="form-row"><label>分类</label><select id="editCat">'+opts+'</select></div>'
+    + '<div class="form-row"><label>单价（元）</label><input id="editPrice" type="number" min="0" step="0.1" value="'+it.price+'"></div>'
+    + '<div class="form-row"><label>单位</label><input id="editUnit" value="'+esc(it.unit)+'"></div>',
+    [['btn-primary','保存','saveItem(\''+id+'\')'],['btn-gray','取消','closeModal()']]);
+}
+async function saveItem(id){
+  await act(async ()=>{
+    await api('/api/items/'+id, { method:'PUT', body:{
+      name: val('editName').trim(), cat_id: val('editCat'),
+      price: parseFloat(val('editPrice')), unit: val('editUnit').trim() } });
+    closeModal(); toast('物品已更新'); render();
+  });
+}
+
+/* ================= 管理员：审核中心 ================= */
+async function renderReview(main){
+  cache.requests = await api('/api/requests');
+  const list = cache.requests.filter(r => reviewFilter==='all' || r.status===reviewFilter);
+  const opts = [['all','全部'],['pending','待审核'],['approved','已通过'],['rejected','已驳回']].map(o=>
+    '<option value="'+o[0]+'"'+(reviewFilter===o[0]?' selected':'')+'>'+o[1]+'</option>').join('');
+  main.innerHTML = '<div class="page-title">审核中心</div>'
+    + '<div class="toolbar">状态：<select onchange="reviewFilter=this.value;render()">'+opts+'</select>'
+    + '<span class="muted">共 '+list.length+' 条</span></div>'
+    + (list.length ? list.map(reviewCard).join('') : '<div class="card empty-tip">暂无申请</div>');
+}
+function reviewCard(r){
+  const isPending = r.status==='pending';
+  return '<div class="card" style="margin-bottom:12px">'
+    + '<div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">'
+    + '<b>'+esc(r.no)+'</b>'+statusBadge(r.status)
+    + '<span class="muted">申请人：'+esc(r.username)+'　'+esc(r.date)+'</span>'
+    + '<span style="margin-left:auto">合计 <b style="color:#dc2626">¥'+fmt(reqTotal(r))+'</b></span></div>'
+    + (r.note ? '<div class="muted" style="margin-top:6px">备注：'+esc(r.note)+'</div>' : '')
+    + '<div style="margin-top:8px">'+reqItemsTable(r)+'</div>'
+    + (r.comment ? '<div style="margin-top:8px;padding:8px 12px;background:#f8fafc;border-radius:6px;font-size:12.5px">审核意见：'+esc(r.comment)+'　<span class="muted">'+esc(r.review_time)+'</span></div>' : '')
+    + (isPending ? '<div class="mt16" style="display:flex;gap:10px">'
+        + '<button class="btn-green" onclick="openReviewModal(\''+r.id+'\',\'approved\')">✔ 通过</button>'
+        + '<button class="btn-red" onclick="openReviewModal(\''+r.id+'\',\'rejected\')">✘ 驳回</button></div>' : '')
+    + '</div>';
+}
+function openReviewModal(id, action){
+  const r = cache.requests.find(x=>x.id===id);
+  const title = action==='approved' ? '✔ 通过申请 '+r.no : '✘ 驳回申请 '+r.no;
+  showModal(title,
+    '<div class="form-row"><label>审核意见（'+(action==='approved'?'选填':'必填')+'）</label>'
+    + '<textarea id="reviewComment" rows="3" placeholder="'+(action==='approved'?'如：同意采购':'请填写驳回原因')+'"></textarea></div>',
+    [['btn-'+(action==='approved'?'green':'red'),'确认','doReview(\''+id+'\',\''+action+'\')'],['btn-gray','取消','closeModal()']]);
+}
+async function doReview(id, action){
+  await act(async ()=>{
+    await api('/api/requests/'+id+'/review', { method:'POST', body:{
+      action, comment: val('reviewComment').trim() } });
+    closeModal(); render();
+    toast(action==='approved' ? '已通过该采购申请' : '已驳回该采购申请');
+  });
+}
+
+/* ================= 管理员：采购明细 / 导出 ================= */
+function exportRows(){
+  const kw = exportKw.trim().toLowerCase();
+  return cache.requests
+    .filter(r => exportFilter==='all' || r.status===exportFilter)
+    .filter(r => !kw || r.no.toLowerCase().includes(kw) || r.username.toLowerCase().includes(kw)
+              || r.items.some(it=>it.name.toLowerCase().includes(kw)))
+    .flatMap(r => r.items.map(it=>({r, it})));
+}
+async function renderExport(main){
+  cache.requests = await api('/api/requests');
+  const rows = exportRows();
+  const total = rows.reduce((s,x)=>s+x.it.price*x.it.qty,0);
+  const opts = [['all','全部'],['approved','已通过'],['pending','待审核'],['rejected','已驳回']].map(o=>
+    '<option value="'+o[0]+'"'+(exportFilter===o[0]?' selected':'')+'>'+o[1]+'</option>').join('');
+  const modeOpts = [['merged','合并一个文件'],['user','按申请人分文件'],['no','按单号分文件']].map(o=>
+    '<option value="'+o[0]+'"'+(exportMode===o[0]?' selected':'')+'>'+o[1]+'</option>').join('');
+  main.innerHTML = '<div class="page-title">采购明细</div>'
+    + '<div class="toolbar">状态：<select onchange="exportFilter=this.value;render()">'+opts+'</select>'
+    + '<input placeholder="搜索单号 / 申请人 / 物品" value="'+esc(exportKw)+'" oninput="exportKw=this.value;renderExportTable()" style="width:200px">'
+    + '<span class="spacer"></span>'
+    + '导出方式：<select onchange="exportMode=this.value">'+modeOpts+'</select> '
+    + '<button class="btn-green" onclick="exportCSV()">📤 导出采购清单明细 (CSV)</button></div>'
+    + '<div id="exportTableWrap">'+exportTable(rows, total)+'</div>';
+}
+function exportTable(rows, total){
+  if(!rows.length) return '<div class="card empty-tip">暂无数据</div>';
+  const tr = rows.map(x=>
+    '<tr><td>'+esc(x.r.no)+'</td><td>'+esc(x.r.date)+'</td><td>'+esc(x.r.username)+'</td>'
+    + '<td>'+esc(x.it.name)+'</td><td>'+esc(x.it.cat_name)+'</td><td>¥'+fmt(x.it.price)+'</td><td>'+x.it.qty+'</td>'
+    + '<td>¥'+fmt(x.it.price*x.it.qty)+'</td><td>'+statusBadge(x.r.status)+'</td></tr>').join('');
+  return '<table><thead><tr><th>采购单号</th><th>申请时间</th><th>申请人</th><th>物品名称</th><th>分类</th><th>单价</th><th>数量</th><th>金额</th><th>状态</th></tr></thead>'
+    + '<tbody>'+tr+'</tbody>'
+    + '<tfoot><tr style="font-weight:700;background:#f8fafc"><td colspan="7">合计</td><td>¥'+fmt(total)+'</td><td></td></tr></tfoot></table>';
+}
+function renderExportTable(){
+  const wrap = document.getElementById('exportTableWrap'); if(!wrap) return;
+  const rows = exportRows();
+  const total = rows.reduce((s,x)=>s+x.it.price*x.it.qty,0);
+  wrap.innerHTML = exportTable(rows, total);
+}
+function csvContent(rows){
+  const head = ['序号','采购单号','申请时间','申请人','物品名称','分类','单位','单价(元)','数量','金额(元)','审核状态','审核意见'];
+  const lines = [head.join(',')];
+  rows.forEach((x,i)=>{
+    const row = [i+1, x.r.no, x.r.date, x.r.username, x.it.name, x.it.cat_name, x.it.unit,
+      fmt(x.it.price), x.it.qty, fmt(x.it.price*x.it.qty), statusText(x.r.status), x.r.comment||''];
+    lines.push(row.map(csvCell).join(','));
+  });
+  return '\uFEFF' + lines.join('\r\n');
+}
+function downloadCSV(filename, content){
+  const blob = new Blob([content], {type:'text/csv;charset=utf-8'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  document.body.appendChild(a); a.click(); a.remove();
+}
+function safeFileName(s){ return String(s).replace(/[\\\/:*?"<>|]/g, '_'); }
+function exportCSV(){
+  const rows = exportRows();
+  if(!rows.length){ toast('当前筛选条件下没有可导出的数据'); return; }
+  const today = new Date().toISOString().slice(0,10);
+  if(exportMode === 'user' || exportMode === 'no'){
+    const key = exportMode === 'user' ? 'username' : 'no';
+    const label = exportMode === 'user' ? '申请人' : '单号';
+    const groups = {};
+    rows.forEach(x=>{ (groups[x.r[key]] = groups[x.r[key]] || []).push(x); });
+    const names = Object.keys(groups);
+    names.forEach((name, i)=> setTimeout(()=>
+      downloadCSV('采购明细_'+label+'_'+safeFileName(name)+'_'+today+'.csv', csvContent(groups[name])), i*400));
+    toast('正在按'+label+'导出 '+names.length+' 个文件，请在浏览器提示中选择"允许"下载多个文件');
+  } else {
+    downloadCSV('采购清单明细_' + today + '.csv', csvContent(rows));
+    toast('已导出 ' + rows.length + ' 条明细');
+  }
+}
+function csvCell(v){
+  v = String(v);
+  return /[",\r\n]/.test(v) ? '"' + v.replace(/"/g,'""') + '"' : v;
+}
+
+/* ================= 管理员：用户管理 ================= */
+async function renderUsers(main){
+  cache.users = await api('/api/users');
+  const rows = cache.users.map(u=>
+    '<tr><td>'+esc(u.username)+'</td>'
+    + '<td>'+(u.role==='admin' ? '<span class="badge approved">管理员</span>' : '<span class="badge pending">普通用户</span>')+'</td>'
+    + '<td>'+(u.role==='user'
+        ? '<button class="btn-red btn-sm" onclick="delUser(\''+esc(u.username)+'\')">删除</button>'
+        : '<span class="muted">—</span>')+'</td></tr>').join('');
+  main.innerHTML = '<div class="page-title">用户管理</div>'
+    + '<div class="card" style="margin-bottom:16px"><div style="font-weight:600;margin-bottom:12px">添加普通用户</div>'
+    + '<div class="inline-form">'
+    + '<input id="newUserName" placeholder="用户名（不含空格）" style="width:180px">'
+    + '<input id="newUserPwd" type="text" placeholder="密码" style="width:150px">'
+    + '<button class="btn-primary" onclick="addUser()">＋ 添加用户</button></div></div>'
+    + '<div class="card"><div style="font-weight:600;margin-bottom:12px">用户列表（'+cache.users.length+'）</div>'
+    + '<table><thead><tr><th>用户名</th><th>角色</th><th>操作</th></tr></thead><tbody>'+rows+'</tbody></table>'
+    + '<div class="muted" style="margin-top:10px">删除用户后，该用户的历史采购申请将保留用于追溯。</div></div>';
+}
+async function addUser(){
+  await act(async ()=>{
+    await api('/api/users', { method:'POST', body:{ username: val('newUserName').trim(), password: val('newUserPwd') } });
+    toast('用户已添加'); render();
+  });
+}
+function delUser(name){
+  if(!confirm('确定删除用户「'+name+'」吗？\n其历史采购申请将保留。')) return;
+  act(async ()=>{
+    await api('/api/users/'+encodeURIComponent(name), { method:'DELETE' });
+    toast('用户「'+name+'」已删除'); render();
+  });
+}
+
+/* ================= 弹窗 / Toast ================= */
+function showModal(title, bodyHtml, btns){
+  const ov = document.getElementById('modalOverlay');
+  ov.innerHTML = '<div class="modal"><h3>'+esc(title)+'</h3>'+bodyHtml
+    + '<div class="btns">'+btns.map(b=>'<button class="'+b[0]+'" onclick="'+b[2]+'">'+b[1]+'</button>').join('')+'</div></div>';
+  ov.classList.remove('hidden');
+}
+function closeModal(){ const ov=document.getElementById('modalOverlay'); ov.classList.add('hidden'); ov.innerHTML=''; }
+let toastTimer = null;
+function toast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.remove('hidden');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(()=>t.classList.add('hidden'), 2500);
+}
+
+/* ================= 启动 ================= */
+(async function boot(){
+  const bootEl = document.getElementById('boot');
+  try{
+    currentUser = await api('/api/me');
+    loadCart();
+    view = currentUser.role==='admin' ? 'dashboard' : 'shop';
+    bootEl.remove();
+    enterApp();
+  }catch(e){
+    currentUser = null;
+    bootEl.remove();
+    document.getElementById('loginPage').classList.remove('hidden');
+  }
+})();
+</script>
+</body>
+</html>
