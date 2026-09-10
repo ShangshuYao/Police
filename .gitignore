@@ -1,0 +1,23 @@
+# ===== Python 运行环境（服务器上生成，不入库）=====
+venv/
+__pycache__/
+*.pyc
+*.pyo
+
+# ===== 数据库文件（运行时数据，严禁入库）=====
+# procurement.db 含线上真实数据；入库会导致 pull 冲突且数据公开
+*.db
+*.db-wal
+*.db-shm
+backup_*.db
+
+# ===== Flask 会话密钥（每台服务器自动生成，严禁入库）=====
+secret_key.txt
+
+# ===== 日志与临时文件 =====
+*.log
+.dev-server.ps1
+
+# ===== 系统文件 =====
+.DS_Store
+Thumbs.db

@@ -1,6 +1,6 @@
 /* ================= 管理员：物品管理 ================= */
 function viewItems(){
-  const cats = q('SELECT * FROM categories ORDER BY rowid');
+  const cats = allCategories();
   const items = allItems();
   const catChips = cats.map(c=>
     '<span class="cat-chip">'+esc(c.name)+'<b title="删除分类" onclick="delCategory(\''+c.id+'\')">✕</b></span>').join('');
@@ -24,45 +24,47 @@ function viewItems(){
     + '<table><thead><tr><th>名称</th><th>分类</th><th>单价</th><th>单位</th><th>操作</th></tr></thead><tbody>'+rows+'</tbody></table></div>';
 }
 
-function addCategory(){
+async function addCategory(){
   const name = val('newCatName').trim();
   if(!name){ toast('请输入分类名称'); return; }
-  if(one('SELECT id FROM categories WHERE name=?',[name])){ toast('该分类已存在'); return; }
-  tx(()=> run('INSERT INTO categories VALUES (?,?)',[genId('c'),name]));
-  render(); toast('分类已添加');
+  try{ await apiAddCategory(name); }
+  catch(e){ toast(e.message || '添加失败'); return; }
+  await refreshCache(); render(); toast('分类已添加');
 }
 
-function delCategory(id){
-  const n = one('SELECT COUNT(*) AS c FROM items WHERE cat_id=?',[id]).c;
-  if(n){ toast('该分类下还有 '+n+' 个物品，请先删除或转移'); return; }
-  const c = one('SELECT name FROM categories WHERE id=?',[id]);
+async function delCategory(id){
+  const c = allCategories().find(c=>c.id===id);
+  if(!c) return;
   if(!confirm('确定删除分类「'+c.name+'」吗？')) return;
-  tx(()=> run('DELETE FROM categories WHERE id=?',[id]));
-  render(); toast('分类已删除');
+  try{ await apiDelCategory(id); }
+  catch(e){ toast(e.message || '删除失败'); return; }
+  await refreshCache(); render(); toast('分类已删除');
 }
 
-function addItem(){
+async function addItem(){
   const name = val('newItemName').trim();
   const catId = val('newItemCat');
   const price = parseFloat(val('newItemPrice'));
   const unit = val('newItemUnit').trim() || '件';
   if(!name){ toast('请输入物品名称'); return; }
   if(!(price>=0)){ toast('请输入正确的单价'); return; }
-  tx(()=> run('INSERT INTO items VALUES (?,?,?,?,?)',[genId('i'),name,catId,price,unit]));
-  render(); toast('物品已添加');
+  try{ await apiAddItem({ name, catId, price, unit }); }
+  catch(e){ toast(e.message || '添加失败'); return; }
+  await refreshCache(); render(); toast('物品已添加');
 }
 
-function delItem(id){
+async function delItem(id){
   const it = itemById(id);
   if(!confirm('确定删除物品「'+it.name+'」吗？')) return;
-  tx(()=> run('DELETE FROM items WHERE id=?',[id]));
+  try{ await apiDelItem(id); }
+  catch(e){ toast(e.message || '删除失败'); return; }
   cart = cart.filter(c=>c.itemId!==id); saveCart();
-  render(); toast('物品已删除');
+  await refreshCache(); render(); toast('物品已删除');
 }
 
 function openItemModal(id){
   const it = itemById(id);
-  const opts = q('SELECT * FROM categories ORDER BY rowid').map(c=>
+  const opts = allCategories().map(c=>
     '<option value="'+c.id+'"'+(c.id===it.cat_id?' selected':'')+'>'+esc(c.name)+'</option>').join('');
   showModal('编辑物品',
     '<div class="form-row"><label>名称</label><input id="editName" value="'+esc(it.name)+'"></div>'
@@ -72,12 +74,13 @@ function openItemModal(id){
     [['btn-primary','保存','saveItem(\''+id+'\')'],['btn-gray','取消','closeModal()']]);
 }
 
-function saveItem(id){
+async function saveItem(id){
   const name = val('editName').trim();
   const price = parseFloat(val('editPrice'));
   if(!name){ toast('名称不能为空'); return; }
   if(!(price>=0)){ toast('请输入正确的单价'); return; }
-  tx(()=> run('UPDATE items SET name=?, cat_id=?, price=?, unit=? WHERE id=?',
-    [name, val('editCat'), price, val('editUnit').trim() || '件', id]));
-  closeModal(); render(); toast('物品已更新');
+  try{
+    await apiUpdateItem(id, { name, catId: val('editCat'), price, unit: val('editUnit').trim() || '件' });
+  }catch(e){ toast(e.message || '保存失败'); return; }
+  closeModal(); await refreshCache(); render(); toast('物品已更新');
 }

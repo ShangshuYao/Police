@@ -11,14 +11,14 @@
 <!-- 启动遮罩 -->
 <div id="boot">
   <div class="spin"></div>
-  <div style="color:#475569;font-size:14px" id="bootText">正在初始化 SQLite 数据库…</div>
+  <div style="color:#475569;font-size:14px" id="bootText">正在连接服务器…</div>
 </div>
 
 <!-- 登录页 -->
 <div id="loginPage" class="hidden">
   <div class="login-box">
     <h1>📦 采购管理系统</h1>
-    <div class="sub">Office &amp; Daily Supplies Procurement · SQLite</div>
+    <div class="sub">Office &amp; Daily Supplies Procurement · Server</div>
     <label>用户名</label>
     <input id="loginUser" placeholder="请输入用户名" onkeydown="if(event.key==='Enter')document.getElementById('loginPwd').focus()">
     <label>密码</label>
@@ -51,11 +51,9 @@
 <div id="modalOverlay" class="hidden" onclick="if(event.target===this)closeModal()"></div>
 <div id="toast" class="hidden"></div>
 
-<!-- SQLite 引擎（提供全局 initSqlJs） -->
-<script src="js/vendor/sql-wasm.js"></script>
 <!-- 通用工具 -->
 <script src="js/utils.js"></script>
-<!-- 数据库层（SQLite 引擎 + schema/查询/持久化） -->
+<!-- 数据层（服务端 API 客户端 + 内存缓存） -->
 <script src="js/db.js"></script>
 <!-- 通用 UI 组件（弹窗 / Toast） -->
 <script src="js/ui.js"></script>

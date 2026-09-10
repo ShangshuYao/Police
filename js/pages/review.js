@@ -28,18 +28,20 @@ function reviewCard(r){
 }
 
 function openReviewModal(id, action){
-  const r = one('SELECT no FROM requests WHERE id=?',[id]);
-  const title = action==='approved' ? '✔ 通过申请 '+r.no : '✘ 驳回申请 '+r.no;
+  const r = loadRequests().find(r=>r.id===id);
+  const no = r ? r.no : '';
+  const title = action==='approved' ? '✔ 通过申请 '+no : '✘ 驳回申请 '+no;
   showModal(title,
     '<div class="form-row"><label>审核意见（'+(action==='approved'?'选填':'必填')+'）</label>'
     + '<textarea id="reviewComment" rows="3" placeholder="'+(action==='approved'?'如：同意采购':'请填写驳回原因')+'"></textarea></div>',
     [['btn-'+(action==='approved'?'green':'red'),'确认','doReview(\''+id+'\',\''+action+'\')'],['btn-gray','取消','closeModal()']]);
 }
 
-function doReview(id, action){
+async function doReview(id, action){
   const comment = val('reviewComment').trim();
   if(action==='rejected' && !comment){ toast('驳回时必须填写审核意见'); return; }
-  tx(()=> run('UPDATE requests SET status=?, comment=?, review_time=? WHERE id=?',[action,comment,nowStr(),id]));
-  closeModal(); render();
+  try{ await apiReview(id, action, comment); }
+  catch(e){ toast(e.message || '审核操作失败'); return; }
+  closeModal(); await refreshCache(); render();
   toast(action==='approved' ? '已通过该采购申请' : '已驳回该采购申请');
 }

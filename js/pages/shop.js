@@ -3,7 +3,7 @@ let shopCat = 'all', shopKw = '';
 
 function viewShop(){
   const tabs = ['<div class="cat-tab'+(shopCat==='all'?' active':'')+'" onclick="setShopCat(\'all\')">全部</div>']
-    .concat(q('SELECT * FROM categories ORDER BY rowid').map(c=>
+    .concat(allCategories().map(c=>
       '<div class="cat-tab'+(shopCat===c.id?' active':'')+'" onclick="setShopCat(\''+c.id+'\')">'+esc(c.name)+'</div>'));
   // 限额信息
   const limit = userLimit(currentUser.username);
@@ -99,9 +99,9 @@ function cartRemove(idx){
   if(!cart.length){ closeModal(); } else { openCartModal(); }
 }
 
-function submitRequest(){
+async function submitRequest(){
   if(!cart.length){ toast('采购车为空'); return; }
-  // 限额校验
+  // 限额前端预校验（服务端会再次强制校验）
   const limit = userLimit(currentUser.username);
   if(limit > 0){
     const total = cart.reduce((s,c)=>{ const it=itemById(c.itemId); return s+it.price*c.qty; },0);
@@ -111,18 +111,19 @@ function submitRequest(){
       return;
     }
   }
-  const no = 'CG' + nowStr().slice(0,10).replace(/-/g,'')
-           + String(one('SELECT COUNT(*) AS c FROM requests').c + 1).padStart(4,'0');
-  const id = genId('r'), date = nowStr(), note = val('reqNote').trim();
-  tx(()=>{
-    run('INSERT INTO requests VALUES (?,?,?,?,?,?,?,?)',[id,no,currentUser.username,date,'pending',note,'','']);
-    cart.forEach(c=>{
-      const it = itemById(c.itemId);
-      run('INSERT INTO request_items(request_id,item_id,name,cat_name,price,unit,qty) VALUES (?,?,?,?,?,?,?)',
-        [id,it.id,it.name,it.cat_name||'未分类',it.price,it.unit,c.qty]);
-    });
-  });
+  const note = val('reqNote').trim();
+  const payload = {
+    note: note,
+    items: cart.map(c=>({ itemId: c.itemId, qty: c.qty }))
+  };
+  try{
+    await apiSubmitRequest(payload);
+  }catch(e){
+    toast(e.message || '提交失败，请稍后重试');
+    return;
+  }
   cart = []; saveCart(); updateCartCount(); closeModal();
+  await refreshCache();
   toast('采购申请已提交，等待管理员审核');
   view = 'myreq'; render();
 }

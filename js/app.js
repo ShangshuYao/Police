@@ -10,22 +10,29 @@ function loadCart(){
 }
 function saveCart(){ localStorage.setItem('pm_cart_'+currentUser.username, JSON.stringify(cart)); }
 
-function doLogin(){
+async function doLogin(){
   const u = val('loginUser').trim();
   const p = val('loginPwd');
-  const found = one('SELECT username, role FROM users WHERE username=? AND password=?',[u,p]);
-  if(!found){ toast('用户名或密码错误'); return; }
-  currentUser = found;
-  localStorage.setItem(SKEY, JSON.stringify(found));
+  if(!u || !p){ toast('请输入用户名和密码'); return; }
+  let res;
+  try{
+    res = await apiLogin(u, p);
+  }catch(e){ toast(e.message || '登录失败'); return; }
+  if(!res || !res.user){ toast('用户名或密码错误'); return; }
+  currentUser = res.user;
+  try{
+    await refreshCache();
+  }catch(e){ toast(e.message || '加载数据失败'); return; }
   loadCart();
-  view = found.role==='admin' ? 'dashboard' : 'shop';
+  view = currentUser.role==='admin' ? 'dashboard' : 'shop';
   enterApp();
 }
 
 function logout(){
   if(!confirm('确定退出登录吗？')) return;
+  apiLogout();
   currentUser = null;
-  localStorage.removeItem(SKEY);
+  cache.users = []; cache.requests = []; cache.items = []; cache.categories = [];
   document.getElementById('app').classList.add('hidden');
   document.getElementById('loginPage').classList.remove('hidden');
   document.getElementById('loginPwd').value = '';
@@ -42,7 +49,12 @@ function enterApp(){
   render();
 }
 
-function switchView(v){ view = v; render(); }
+function switchView(v){
+  view = v;
+  render();
+  // 后台刷新缓存后再渲染一次，保证看到最新数据
+  refreshCache().then(()=>render()).catch(()=>{});
+}
 
 function render(){
   renderSidebar(); updateCartCount();
@@ -82,12 +94,11 @@ function updateCartCount(){
   const bootText = document.getElementById('bootText');
   try{
     await initDb();
-    try{
-      const s = JSON.parse(localStorage.getItem(SKEY) || 'null');
-      if(s) currentUser = one('SELECT username, role FROM users WHERE username=?',[s.username]) || null;
-    }catch(e){}
+    const me = await apiMe();
     bootEl.remove();
-    if(currentUser){
+    if(me && me.user){
+      currentUser = me.user;
+      await refreshCache();
       loadCart();
       view = currentUser.role==='admin' ? 'dashboard' : 'shop';
       enterApp();
@@ -95,7 +106,7 @@ function updateCartCount(){
       document.getElementById('loginPage').classList.remove('hidden');
     }
   }catch(e){
-    bootText.innerHTML = '<span style="color:#dc2626">数据库初始化失败，请刷新页面重试。</span>';
+    bootText.innerHTML = '<span style="color:#dc2626">'+(e.message||'无法连接服务器，请确认服务端已启动后刷新页面重试。')+'</span>';
     bootEl.querySelector('.spin').style.display = 'none';
   }
 })();
