@@ -9,8 +9,6 @@ Flask + SQLite（WAL 模式）。
     生产：     gunicorn -w 1 -b 127.0.0.1:8000 app:app
 """
 import os
-import io
-import json
 import uuid
 import hashlib
 import secrets
@@ -250,6 +248,29 @@ def api_me():
     return jsonify(user={'username': u['username'], 'role': u['role']} if u else None)
 
 
+@app.route('/api/change-password', methods=['POST'])
+@login_required
+def change_password():
+    """已登录用户修改自己的密码：必须验证旧密码。管理员和普通用户均可用。"""
+    d = request.get_json(force=True, silent=True) or {}
+    old_pw = d.get('oldPassword') or ''
+    new_pw = d.get('newPassword') or ''
+    if not old_pw or not new_pw:
+        return jsonify(error='请填写旧密码和新密码'), 400
+    if len(new_pw) < 6:
+        return jsonify(error='新密码长度至少 6 位'), 400
+    if old_pw == new_pw:
+        return jsonify(error='新密码不能与旧密码相同'), 400
+    row = query_one("SELECT salt, password FROM users WHERE username=?",
+                    (g.user['username'],))
+    if not row or not verify_pw(old_pw, row['salt'], row['password']):
+        return jsonify(error='旧密码不正确'), 400
+    salt, h = hash_pw(new_pw)
+    execute("UPDATE users SET salt=?, password=? WHERE username=?",
+            (salt, h, g.user['username']))
+    return jsonify(ok=True)
+
+
 # ================= 分类 =================
 @app.route('/api/categories')
 @login_required
@@ -425,18 +446,17 @@ def create_request():
     # 生成单号：CG + 年月日 + 当日序号(4位)
     today = datetime.now().strftime('%Y%m%d')
     prefix = 'CG' + today
-    with db():
-        cnt = query_one("SELECT COUNT(*) AS c FROM requests WHERE no LIKE ?", (prefix + '%',))['c']
-        no = prefix + str(cnt + 1).zfill(4)
-        rid = 'r' + uuid.uuid4().hex
-        date = now_str()
-        execute("INSERT INTO requests(id,no,username,date,status,note,comment,review_time) "
-                "VALUES (?,?,?,?,?,?,?,?)",
-                (rid, no, u['username'], date, 'pending', note, '', ''))
-        for (iid, name, cat_name, price, unit, qty) in lines:
-            execute("INSERT INTO request_items(request_id,item_id,name,cat_name,price,unit,qty) "
-                    "VALUES (?,?,?,?,?,?,?)",
-                    (rid, iid, name, cat_name, price, unit, qty))
+    cnt = query_one("SELECT COUNT(*) AS c FROM requests WHERE no LIKE ?", (prefix + '%',))['c']
+    no = prefix + str(cnt + 1).zfill(4)
+    rid = 'r' + uuid.uuid4().hex
+    date = now_str()
+    execute("INSERT INTO requests(id,no,username,date,status,note,comment,review_time) "
+            "VALUES (?,?,?,?,?,?,?,?)",
+            (rid, no, u['username'], date, 'pending', note, '', ''))
+    for (iid, name, cat_name, price, unit, qty) in lines:
+        execute("INSERT INTO request_items(request_id,item_id,name,cat_name,price,unit,qty) "
+                "VALUES (?,?,?,?,?,?,?)",
+                (rid, iid, name, cat_name, price, unit, qty))
     return jsonify(ok=True, no=no)
 
 
@@ -534,6 +554,24 @@ def set_user_limit(username):
     if not query_one("SELECT username FROM users WHERE username=?", (username,)):
         return jsonify(error='用户不存在'), 404
     execute("UPDATE users SET limit_amt=? WHERE username=?", (limit, username))
+    return jsonify(ok=True)
+
+
+@app.route('/api/users/<username>/password', methods=['PUT'])
+@admin_required
+def reset_user_password(username):
+    """管理员为普通用户重置密码（无需旧密码），只能重置普通用户。"""
+    d = request.get_json(force=True, silent=True) or {}
+    new_pw = d.get('newPassword') or ''
+    if len(new_pw) < 6:
+        return jsonify(error='新密码长度至少 6 位'), 400
+    row = query_one("SELECT role FROM users WHERE username=?", (username,))
+    if not row:
+        return jsonify(error='用户不存在'), 404
+    if row['role'] != 'user':
+        return jsonify(error='只能重置普通用户的密码'), 400
+    salt, h = hash_pw(new_pw)
+    execute("UPDATE users SET salt=?, password=? WHERE username=?", (salt, h, username))
     return jsonify(ok=True)
 
 

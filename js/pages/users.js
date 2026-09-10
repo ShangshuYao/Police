@@ -14,6 +14,7 @@ function viewUsers(){
       + '<td>'+pendingStr+'</td>'
       + '<td>'+(u.role==='user'
           ? '<button class="btn-gray btn-sm" onclick="openLimitModal(\''+esc(u.username)+'\')">设置限额</button> '
+            + '<button class="btn-gray btn-sm" onclick="openResetPwdModal(\''+esc(u.username)+'\')">重置密码</button> '
             + '<button class="btn-red btn-sm" onclick="delUser(\''+esc(u.username)+'\')">删除</button>'
           : '<span class="muted">—</span>')+'</td></tr>';
   }).join('');
@@ -74,4 +75,24 @@ async function saveLimit(username){
   catch(e){ toast(e.message || '保存失败'); return; }
   closeModal(); await refreshCache(); render();
   toast('已更新「'+username+'」的采购限额为'+(limit===0?'无限制':'¥'+fmt(limit)));
+}
+
+function openResetPwdModal(username){
+  const u = cache.users.find(u=>u.username===username);
+  if(!u || u.role!=='user'){ toast('只能重置普通用户密码'); return; }
+  showModal('重置密码 · '+username,
+    '<div class="muted" style="margin-bottom:12px">为用户「'+esc(username)+'」设置新密码，无需其旧密码。重置后请通知用户使用新密码登录。</div>'
+    + '<div class="form-row"><label>新密码</label>'
+    + '<input id="resetPwd" type="text" placeholder="至少 6 位" onkeydown="if(event.key===\'Enter\')doResetPassword(\''+esc(username)+'\')"></div>',
+    [['btn-primary','确认重置','doResetPassword(\''+esc(username)+'\')'],['btn-gray','取消','closeModal()']]);
+}
+
+async function doResetPassword(username){
+  const newP = val('resetPwd');
+  if(!newP){ toast('请输入新密码'); return; }
+  if(newP.length < 6){ toast('新密码长度至少 6 位'); return; }
+  try{ await apiResetPassword(username, newP); }
+  catch(e){ toast(e.message || '重置失败'); return; }
+  closeModal();
+  toast('已为「'+username+'」重置密码');
 }

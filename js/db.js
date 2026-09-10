@@ -102,6 +102,15 @@ async function apiReview(id, action, comment){
              { method: 'POST', body: { action, comment } });
 }
 
+/* ==================== 密码管理 API ==================== */
+async function apiChangePassword(oldPassword, newPassword){
+  return api('/api/change-password', { method: 'POST', body: { oldPassword, newPassword } });
+}
+async function apiResetPassword(username, newPassword){
+  return api('/api/users/' + encodeURIComponent(username) + '/password',
+             { method: 'PUT', body: { newPassword } });
+}
+
 /* ==================== 用户管理 API ==================== */
 async function apiAddUser(p){
   return api('/api/users', { method: 'POST', body: p });

@@ -88,6 +88,34 @@ function updateCartCount(){
   document.getElementById('cartCount').textContent = cart.reduce((s,c)=>s+c.qty,0);
 }
 
+/* ================= 修改密码（本人，两种角色通用） ================= */
+function openPwdModal(){
+  showModal('修改密码 · ' + currentUser.username,
+    '<div class="form-row"><label>旧密码</label>'
+    + '<input id="oldPwd" type="password" placeholder="请输入当前密码"></div>'
+    + '<div class="form-row"><label>新密码</label>'
+    + '<input id="newPwd" type="password" placeholder="至少 6 位"></div>'
+    + '<div class="form-row"><label>确认新密码</label>'
+    + '<input id="newPwd2" type="password" placeholder="再次输入新密码" onkeydown="if(event.key===\'Enter\')doChangePassword()"></div>'
+    + '<div class="muted" style="font-size:13px">密码保存在服务器数据库中（SHA-256 加盐加密）。修改成功后需用新密码重新登录。</div>',
+    [['btn-primary','确认修改','doChangePassword()'],['btn-gray','取消','closeModal()']]);
+}
+
+async function doChangePassword(){
+  const oldP = val('oldPwd');
+  const newP = val('newPwd');
+  const newP2 = val('newPwd2');
+  if(!oldP || !newP){ toast('请填写旧密码和新密码'); return; }
+  if(newP.length < 6){ toast('新密码长度至少 6 位'); return; }
+  if(newP !== newP2){ toast('两次输入的新密码不一致'); return; }
+  try{
+    await apiChangePassword(oldP, newP);
+  }catch(e){ toast(e.message || '修改失败'); return; }
+  closeModal();
+  toast('密码修改成功，请重新登录');
+  setTimeout(()=>{ apiLogout(); location.reload(); }, 1200);
+}
+
 /* ================= 启动 ================= */
 (async function boot(){
   const bootEl = document.getElementById('boot');
