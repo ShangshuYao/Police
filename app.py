@@ -127,6 +127,12 @@ SCHEMA = [
         unit TEXT,
         qty INTEGER
     )""",
+    # 活跃会话表：同一用户同一时刻只允许一个活跃会话（单设备登录）
+    """CREATE TABLE IF NOT EXISTS active_sessions(
+        session_token TEXT PRIMARY KEY,
+        username TEXT NOT NULL,
+        login_time TEXT NOT NULL
+    )""",
 ]
 
 SEED_ITEMS = [
@@ -185,12 +191,26 @@ def init_db():
 
 # ================= 认证辅助 =================
 def current_user():
-    """返回当前登录用户 {username, role}，未登录返回 None。"""
+    """返回当前登录用户 {username, role}，未登录或会话失效返回 None。
+    若 session 中有 token 但数据库中不存在，说明被其他设备挤下线。
+    """
     u = session.get('user')
-    if not u:
+    token = session.get('token')
+    if not u or not token:
         return None
-    row = query_one("SELECT username, role FROM users WHERE username=?", (u['username'],))
-    return row
+    # 校验该 token 是否仍为该用户的活跃会话
+    row = query_one("SELECT username FROM active_sessions "
+                    "WHERE session_token=? AND username=?",
+                    (token, u['username']))
+    if not row:
+        # 会话已失效：被其他设备挤下线，或已登出
+        session.pop('user', None)
+        session.pop('token', None)
+        g.kicked = True   # 标记：被挤下线
+        return None
+    urow = query_one("SELECT username, role FROM users WHERE username=?",
+                     (u['username'],))
+    return urow
 
 
 def login_required(fn):
@@ -198,6 +218,8 @@ def login_required(fn):
     def wrapper(*args, **kwargs):
         u = current_user()
         if not u:
+            if getattr(g, 'kicked', False):
+                return jsonify(error='您的账号已在其他设备登录，请重新登录'), 401
             return jsonify(error='未登录或登录已过期，请重新登录'), 401
         g.user = u
         return fn(*args, **kwargs)
@@ -232,13 +254,24 @@ def api_login():
     row = query_one("SELECT * FROM users WHERE username=?", (username,))
     if not row or not verify_pw(password, row['salt'], row['password']):
         return jsonify(ok=False, error='用户名或密码错误'), 401
+    # 单设备登录：清除该用户之前的所有活跃会话（挤掉旧设备）
+    execute("DELETE FROM active_sessions WHERE username=?", (username,))
+    # 生成新的会话令牌并记录
+    token = secrets.token_hex(16)
+    execute("INSERT INTO active_sessions(session_token, username, login_time) "
+            "VALUES (?,?,?)", (token, username, now_str()))
     session['user'] = {'username': row['username'], 'role': row['role']}
+    session['token'] = token
     return jsonify(ok=True, user={'username': row['username'], 'role': row['role']})
 
 
 @app.route('/api/logout', methods=['POST'])
 def api_logout():
+    token = session.get('token')
+    if token:
+        execute("DELETE FROM active_sessions WHERE session_token=?", (token,))
     session.pop('user', None)
+    session.pop('token', None)
     return jsonify(ok=True)
 
 
@@ -268,6 +301,10 @@ def change_password():
     salt, h = hash_pw(new_pw)
     execute("UPDATE users SET salt=?, password=? WHERE username=?",
             (salt, h, g.user['username']))
+    # 改密后清除该用户所有活跃会话，强制重新登录
+    execute("DELETE FROM active_sessions WHERE username=?", (g.user['username'],))
+    session.pop('user', None)
+    session.pop('token', None)
     return jsonify(ok=True)
 
 

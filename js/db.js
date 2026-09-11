@@ -34,7 +34,20 @@ async function api(path, options){
   let data = null;
   try{ data = await res.json(); }catch(e){ /* 非 JSON 响应 */ }
   if(!res.ok){
-    throw { message: (data && data.error) ? data.error : ('请求失败（HTTP ' + res.status + '）') };
+    const msg = (data && data.error) ? data.error : ('请求失败（HTTP ' + res.status + '）');
+    // 会话失效（401）：清除本地登录态并跳回登录页
+    // （可能是未登录、被挤下线、或密码已被修改）
+    if(res.status === 401){
+      if(typeof currentUser !== 'undefined' && currentUser){
+        currentUser = null;
+        cache.users = []; cache.requests = []; cache.items = []; cache.categories = [];
+        const appEl = document.getElementById('app');
+        const loginEl = document.getElementById('loginPage');
+        if(appEl) appEl.classList.add('hidden');
+        if(loginEl) loginEl.classList.remove('hidden');
+      }
+    }
+    throw { message: msg };
   }
   return data;
 }
